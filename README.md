@@ -410,3 +410,28 @@ kustomize build | kubectl apply -f -
 ## License
 
 [License](LICENSE.md)
+
+
+## CI/CD workflow implementation and GitHub configuration
+
+This repository contains four separate GitHub Actions workflows:
+
+- `.github/workflows/frontend-ci.yaml`: frontend pull-request CI, manual CI, lint, tests, and Docker build.
+- `.github/workflows/backend-ci.yaml`: backend pull-request CI, manual CI, lint, tests, and Docker build.
+- `.github/workflows/frontend-cd.yaml`: frontend CD, SHA-tagged ECR image build/push, and EKS deployment.
+- `.github/workflows/backend-cd.yaml`: backend CD, SHA-tagged ECR image build/push, and EKS deployment.
+
+### Required GitHub Actions configuration
+
+Before running either CD workflow, configure these repository Actions secrets under **Settings → Secrets and variables → Actions**:
+
+- `AWS_ACCESS_KEY_ID`: access key for the Terraform-created `github-action-user`.
+- `AWS_SECRET_ACCESS_KEY`: matching secret access key.
+
+The workflows use AWS region `us-east-1`, EKS cluster `cluster`, and ECR repositories `backend` and `frontend`. Provision the AWS resources with the Terraform steps above before attempting deployment.
+
+Run **Backend Continuous Deployment** first, manually from the Actions tab or by pushing a backend change to `main`. After the backend Kubernetes LoadBalancer service is assigned a hostname, copy the `Backend API URL` printed by the deployment job. Add a repository Actions variable named `MOVIE_API_URL` with that URL (for example, `http://<backend-load-balancer-hostname>`). Then run **Frontend Continuous Deployment**.
+
+Each CD workflow runs lint and tests in parallel. The Docker image build/push job runs only after both pass, tags the image with the triggering Git commit SHA, and the deployment job applies the corresponding Kubernetes manifests and waits for the deployment rollout.
+
+**Note:** The CD workflow files are configured in the repository, but a live EKS deployment is not claimed as complete until AWS secrets, infrastructure, and `MOVIE_API_URL` are configured and the deployment workflows pass. Never commit AWS access keys or other secrets.
