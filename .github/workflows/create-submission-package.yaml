@@ -1,0 +1,145 @@
+name: Create Submission Package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Prepare submission folders
+        run: mkdir -p submission/evidence
+
+      - name: Capture successful GitHub Actions pages
+        shell: bash
+        run: |
+          mkdir -p /tmp/ci-screenshots
+          cd /tmp/ci-screenshots
+          npm init -y >/dev/null
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+          cat > capture.cjs <<'EOF'
+          const { chromium } = require("playwright");
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
+            const pages = [
+              ["backend-ci-success.png", "https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44180198348"],
+              ["frontend-ci-success.png", "https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44180204917"]
+            ];
+            for (const [file, url] of pages) {
+              const page = await browser.newPage({ viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 1 });
+              const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 120000 });
+              if (!response || !response.ok()) {
+                throw new Error(`Unable to load ${url}: HTTP ${response && response.status()}`);
+              }
+              await page.waitForTimeout(8000);
+              await page.screenshot({
+                path: `${process.env.GITHUB_WORKSPACE}/submission/evidence/${file}`,
+                fullPage: true
+              });
+              await page.close();
+            }
+            await browser.close();
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          EOF
+          node capture.cjs
+
+      - name: Create submission README and source ZIP
+        shell: bash
+        run: |
+          cat > submission/SUBMISSION_README.md <<'EOF'
+          # Movie Picture Pipeline — Submission Package
+
+          This package contains the project source from the repository's `main` branch and screenshots of the successful GitHub Actions runs.
+
+          ## CI evidence
+
+          - Backend Continuous Integration: all jobs passed (tests, lint, Docker build).
+            https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44180198348
+          - Frontend Continuous Integration: all jobs passed (tests, lint, Docker build).
+            https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44180204917
+
+          Screenshots are in `evidence/`. They were captured from the public GitHub Actions run pages by this workflow.
+
+          ## Run locally
+
+          Backend:
+          ```bash
+          cd starter/backend
+          pip install pipenv
+          pipenv install --dev
+          pipenv run test
+          pipenv run lint
+          ```
+
+          Frontend:
+          ```bash
+          cd starter/frontend
+          npm ci
+          CI=true npm test -- --watchAll=false
+          npm run build
+          ```
+
+          ## Packaging notes
+
+          - Generated Terraform state (`setup/terraform/terraform.tfstate`) and local caches/build outputs are excluded.
+          - Terraform configuration, Kubernetes manifests, application source, workflows, dependency lockfiles, and project documentation are included.
+          EOF
+
+          python - <<'PY'
+          import os
+          import subprocess
+          import zipfile
+          from pathlib import Path
+
+          root = Path(os.environ["GITHUB_WORKSPACE"])
+          output = root / "submission" / "Movie-Picture-Pipeline-Submission.zip"
+          excluded_exact = {
+              "setup/terraform/terraform.tfstate",
+          }
+          excluded_parts = {
+              ".git", ".terraform", "node_modules", "__pycache__", ".pytest_cache",
+              ".venv", "venv", "build", "dist", "coverage",
+          }
+          tracked = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")
+          with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=8) as archive:
+              for item in filter(None, tracked):
+                  path = Path(item)
+                  if item in excluded_exact or any(part in excluded_parts for part in path.parts):
+                      continue
+                  if path.name in {".env", ".env.local", ".env.production"}:
+                      continue
+                  file_path = root / path
+                  if file_path.is_file():
+                      archive.write(file_path, Path("movie-picture-pipeline") / path)
+              archive.write(root / "submission" / "SUBMISSION_README.md",
+                            Path("movie-picture-pipeline") / "SUBMISSION_README.md")
+              for evidence in sorted((root / "submission" / "evidence").glob("*.png")):
+                  archive.write(evidence, Path("movie-picture-pipeline") / "submission" / "evidence" / evidence.name)
+          with zipfile.ZipFile(output) as archive:
+              bad = archive.testzip()
+              if bad:
+                  raise RuntimeError(f"Corrupt ZIP member: {bad}")
+              print(f"Created {output} ({output.stat().st_size} bytes, {len(archive.namelist())} files)")
+          PY
+
+      - name: Upload submission ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: movie-picture-pipeline-submission
+          path: submission/Movie-Picture-Pipeline-Submission.zip
+          if-no-files-found: error
+          retention-days: 30
