@@ -1,8 +1,8 @@
-
 module.exports = {
   env: {
     browser: true,
     es2021: true,
+    node: true,
     jest: true,
   },
   extends: [
@@ -20,6 +20,15 @@ module.exports = {
   },
   plugins: ['react'],
   rules: {
+    'prettier/prettier': [
+      'error',
+      {
+        singleQuote: true,
+        jsxSingleQuote: false,
+        printWidth: 120,
+        parser: 'babel-ts',
+      },
+    ],
     'react/react-in-jsx-scope': 'off',
     'react/prop-types': 'off',
   },
