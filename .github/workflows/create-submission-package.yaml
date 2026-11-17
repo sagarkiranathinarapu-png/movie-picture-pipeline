@@ -1,6 +1,11 @@
 name: Create Submission Package
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/create-submission-package.yaml'
   workflow_dispatch:
 
 permissions:
