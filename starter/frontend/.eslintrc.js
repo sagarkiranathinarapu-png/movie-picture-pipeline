@@ -1,24 +1,25 @@
 module.exports = {
-  env: {
-    browser: true,
-    es2021: true,
-    node: true,
-    jest: true,
+  ignorePatterns: ['build/', 'dist/', 'node_modules/'],
+  extends: ['eslint:recommended', 'plugin:react/recommended'],
+  plugins: ['react', 'prettier'],
+  settings: {
+    react: {
+      version: 'detect',
+    },
   },
-  extends: [
-    'eslint:recommended',
-    'plugin:react/recommended',
-    'plugin:react-hooks/recommended',
-    'plugin:prettier/recommended',
-  ],
   parserOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
     ecmaFeatures: {
       jsx: true,
     },
-    ecmaVersion: 'latest',
-    sourceType: 'module',
   },
-  plugins: ['react'],
+  env: {
+    browser: true,
+    es6: true,
+    node: true,
+    jest: true,
+  },
   rules: {
     'prettier/prettier': [
       'error',
@@ -29,12 +30,8 @@ module.exports = {
         parser: 'babel-ts',
       },
     ],
-    'react/react-in-jsx-scope': 'off',
-    'react/prop-types': 'off',
-  },
-  settings: {
-    react: {
-      version: 'detect',
-    },
+    // Customize your rules here
+    'react/prop-types': process.env.FAIL_LINT ? 2 : 0,
+    'react/jsx-uses-vars': 'warn',
   },
 };
