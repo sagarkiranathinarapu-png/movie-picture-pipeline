@@ -40,7 +40,7 @@ jobs:
             const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
             const pages = [
               ["backend-ci-success.png", "https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44180198348"],
-              ["frontend-ci-success.png", "https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44180204917"]
+              ["frontend-ci-success.png", "https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44184296580"]
             ];
             for (const [file, url] of pages) {
               const page = await browser.newPage({ viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 1 });
@@ -76,7 +76,7 @@ jobs:
           - Backend Continuous Integration: all jobs passed (tests, lint, Docker build).
             https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44180198348
           - Frontend Continuous Integration: all jobs passed (tests, lint, Docker build).
-            https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44180204917
+            https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44184296580
 
           Screenshots are in `evidence/`. They were captured from the public GitHub Actions run pages by this workflow.
 
