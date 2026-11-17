@@ -1,6 +1,12 @@
 name: Backend Continuous Integration
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/backend-ci.yaml'
+      - 'starter/backend/**'
   pull_request:
     branches:
       - main
