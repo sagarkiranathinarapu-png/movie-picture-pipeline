@@ -5,7 +5,8 @@ on:
     branches:
       - main
     paths:
-      - '.github/workflows/create-submission-package.yaml'
+      - '.github/workflows/*.yaml'
+      - '.github/workflows/*.yml'
   workflow_dispatch:
 
 permissions:
@@ -79,24 +80,27 @@ jobs:
 
           Screenshots are in `evidence/`. They were captured from the public GitHub Actions run pages by this workflow.
 
-          ## Run locally
+          ## CI/CD deliverables
 
-          Backend:
-          ```bash
-          cd starter/backend
-          pip install pipenv
-          pipenv install --dev
-          pipenv run test
-          pipenv run lint
-          ```
+          Four separate GitHub Actions workflows are included:
+          - `.github/workflows/frontend-ci.yaml`: frontend pull-request CI, manual CI, lint, tests and Docker build
+          - `.github/workflows/backend-ci.yaml`: backend pull-request CI, manual CI, lint, tests and Docker build
+          - `.github/workflows/frontend-cd.yaml`: frontend CD, SHA-tagged ECR image build/push and EKS deployment
+          - `.github/workflows/backend-cd.yaml`: backend CD, SHA-tagged ECR image build/push and EKS deployment
 
-          Frontend:
-          ```bash
-          cd starter/frontend
-          npm ci
-          CI=true npm test -- --watchAll=false
-          npm run build
-          ```
+          ## Required GitHub configuration before running CD
+
+          Add these repository **Actions secrets** under Settings → Secrets and variables → Actions:
+          - `AWS_ACCESS_KEY_ID`: access key for the Terraform-created `github-action-user`
+          - `AWS_SECRET_ACCESS_KEY`: matching secret access key
+
+          The workflows target AWS region `us-east-1`, EKS cluster `cluster`, and ECR repositories `backend` and `frontend`. Provision the AWS resources first using the Terraform instructions in the project README.
+
+          Run **Backend Continuous Deployment** first from Actions. After the backend service has a LoadBalancer hostname, copy the `Backend API URL` shown in the deploy job and add a repository **Actions variable** named `MOVIE_API_URL` with that full URL (for example, `http://<backend-load-balancer-hostname>`). Then run **Frontend Continuous Deployment**.
+
+          CD workflows can also run automatically when their respective application directory changes on `main`. Each workflow only deploys after its lint and test jobs pass. The deployment job updates the Kubernetes deployment to use the image tagged with the triggering commit SHA and waits for the rollout.
+
+          **Deployment status:** CD workflow definitions are included, but a successful live EKS deployment must be confirmed in the target AWS account after the two repository secrets, infrastructure, and `MOVIE_API_URL` variable are configured. No AWS credentials are stored in this ZIP.
 
           ## Packaging notes
 
