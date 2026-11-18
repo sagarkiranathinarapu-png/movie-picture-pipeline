@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - '.github/workflows/backend-cd.yaml'
       - 'starter/backend/**'
   workflow_dispatch:
 
@@ -31,8 +32,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pipenv
-          cache-dependency-path: starter/backend/Pipfile.lock
+
+      - name: Restore pipenv dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/pipenv
+            ~/.local/share/virtualenvs
+          key: ${{ runner.os }}-pipenv-${{ hashFiles('starter/backend/Pipfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pipenv-
 
       - name: Install pipenv
         run: pip install pipenv
@@ -57,8 +67,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pipenv
-          cache-dependency-path: starter/backend/Pipfile.lock
+
+      - name: Restore pipenv dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/pipenv
+            ~/.local/share/virtualenvs
+          key: ${{ runner.os }}-pipenv-${{ hashFiles('starter/backend/Pipfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pipenv-
 
       - name: Install pipenv
         run: pip install pipenv
@@ -142,10 +161,20 @@ jobs:
       - name: Apply backend Kubernetes manifests
         run: kubectl apply -k starter/backend/k8s
 
-      - name: Wait for backend rollout
-        run: kubectl rollout status deployment/backend --timeout=300s
+      - name: Verify Kubernetes deployment
+        run: |
+          kubectl rollout status deployment/backend --timeout=180s || true
+          echo "----- Logging - kubectl get all -----"
+          kubectl get all
+          echo "----- Logging - kubectl describe deploy backend -----"
+          kubectl describe deploy backend
 
-      - name: Display backend LoadBalancer URL for frontend configuration
+      - name: Verify Backend ECR image
+        run: |
+          echo "----- Logging - Backend ECR Image Details -----"
+          AWS_PAGER="" aws ecr describe-images --repository-name backend --region "$AWS_REGION"
+
+      - name: Display and verify Backend API URL
         run: |
           BACKEND_HOST=""
           for attempt in {1..60}; do
@@ -159,5 +188,5 @@ jobs:
             echo "::error::Backend LoadBalancer hostname was not assigned within 10 minutes."
             exit 1
           fi
-          echo "Set the GitHub repository variable MOVIE_API_URL to http://$BACKEND_HOST before running the frontend CD workflow."
-          echo "Backend API URL: http://$BACKEND_HOST"
+          echo "Backend API URL: http://$BACKEND_HOST/movies"
+          curl --fail --show-error --retry 12 --retry-delay 10 --retry-connrefused "http://$BACKEND_HOST/movies"
