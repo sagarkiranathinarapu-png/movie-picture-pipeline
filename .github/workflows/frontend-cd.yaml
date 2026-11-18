@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - '.github/workflows/frontend-cd.yaml'
       - 'starter/frontend/**'
   workflow_dispatch:
 
@@ -31,8 +32,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: starter/frontend/package-lock.json
+
+      - name: Restore npm dependency cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('starter/frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
 
       - name: Install dependencies
         run: npm ci
@@ -54,8 +61,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: starter/frontend/package-lock.json
+
+      - name: Restore npm dependency cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('starter/frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
 
       - name: Install dependencies
         run: npm ci
@@ -84,17 +97,37 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.35.0'
+
+      - name: Resolve backend API URL from EKS service
+        id: backend-url
+        run: |
+          aws eks update-kubeconfig --region "$AWS_REGION" --name "$EKS_CLUSTER_NAME"
+          BACKEND_HOST=""
+          for attempt in {1..60}; do
+            BACKEND_HOST="$(kubectl get service backend -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)"
+            if [ -n "$BACKEND_HOST" ]; then
+              break
+            fi
+            sleep 10
+          done
+          if [ -z "$BACKEND_HOST" ]; then
+            echo "::error::Backend LoadBalancer hostname not found. Run Backend Continuous Deployment first."
+            exit 1
+          fi
+          echo "Backend API URL: http://$BACKEND_HOST/movies"
+          echo "url=http://$BACKEND_HOST" >> "$GITHUB_OUTPUT"
+
       - name: Build and push Docker image tagged with commit SHA
         id: image
         working-directory: starter/frontend
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          MOVIE_API_URL: ${{ vars.MOVIE_API_URL }}
+          MOVIE_API_URL: ${{ steps.backend-url.outputs.url }}
         run: |
-          if [ -z "$MOVIE_API_URL" ]; then
-            echo "::error::MOVIE_API_URL is not set. Deploy the backend CD workflow first so it can publish the backend LoadBalancer URL."
-            exit 1
-          fi
           IMAGE_URI="$REGISTRY/frontend:$GITHUB_SHA"
           docker build --build-arg "REACT_APP_MOVIE_API_URL=$MOVIE_API_URL" --tag "$IMAGE_URI" .
           docker push "$IMAGE_URI"
@@ -141,5 +174,32 @@ jobs:
       - name: Apply frontend Kubernetes manifests
         run: kubectl apply -k starter/frontend/k8s
 
-      - name: Wait for frontend rollout
-        run: kubectl rollout status deployment/frontend --timeout=300s
+      - name: Verify Kubernetes deployment
+        run: |
+          kubectl rollout status deployment/frontend --timeout=180s || true
+          echo "----- Logging - kubectl get all -----"
+          kubectl get all
+          echo "----- Logging - kubectl describe deploy frontend -----"
+          kubectl describe deploy frontend
+
+      - name: Verify Frontend ECR image
+        run: |
+          echo "----- Logging - Frontend ECR Image Details -----"
+          AWS_PAGER="" aws ecr describe-images --repository-name frontend --region "$AWS_REGION"
+
+      - name: Display and verify Frontend Application URL
+        run: |
+          FRONTEND_HOST=""
+          for attempt in {1..60}; do
+            FRONTEND_HOST="$(kubectl get service frontend -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)"
+            if [ -n "$FRONTEND_HOST" ]; then
+              break
+            fi
+            sleep 10
+          done
+          if [ -z "$FRONTEND_HOST" ]; then
+            echo "::error::Frontend LoadBalancer hostname was not assigned within 10 minutes."
+            exit 1
+          fi
+          echo "Frontend Application URL: http://$FRONTEND_HOST"
+          curl --fail --show-error --retry 12 --retry-delay 10 --retry-connrefused "http://$FRONTEND_HOST/"
