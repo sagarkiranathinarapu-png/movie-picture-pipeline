@@ -71,7 +71,7 @@ jobs:
 
           Repository: https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline
 
-This package contains the project source from the repository's `main` branch and screenshots of the successful GitHub Actions CI runs.
+          This package contains the project source from the repository's `main` branch and screenshots of the successful GitHub Actions CI runs.
 
           ## CI evidence
 
@@ -104,7 +104,7 @@ This package contains the project source from the repository's `main` branch and
 
           **Deployment status:** The two CI workflows have successful runs. CD definitions and deployment verification steps are included. Live EKS deployment remains unverified until AWS Actions secrets `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are configured and the provisioned AWS cluster is reachable. No AWS credentials are stored in this ZIP.
 
-**Udacity resubmission:** Submit the public GitHub repository link, not only this ZIP. After both CD workflows pass, open the Backend API URL and Frontend Application URL printed in their job summaries and take browser screenshots with the URL/address bar visible. These application screenshots are required evidence and are not included until live deployment is completed.
+          **Udacity resubmission:** Submit the public GitHub repository link, not only this ZIP. After both CD workflows pass, open the Backend API URL and Frontend Application URL printed in their job summaries and take browser screenshots with the URL/address bar visible. These application screenshots are required evidence and are not included until live deployment is completed.
 
           ## Packaging notes
 
