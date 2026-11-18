@@ -39,8 +39,8 @@ jobs:
           (async () => {
             const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
             const pages = [
-              ["backend-ci-success.png", "https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44180198348"],
-              ["frontend-ci-success.png", "https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44184296580"]
+              ["backend-ci-success.png", "https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44232758157"],
+              ["frontend-ci-success.png", "https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44232766414"]
             ];
             for (const [file, url] of pages) {
               const page = await browser.newPage({ viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 1 });
@@ -69,14 +69,16 @@ jobs:
           cat > submission/SUBMISSION_README.md <<'EOF'
           # Movie Picture Pipeline — Submission Package
 
-          This package contains the project source from the repository's `main` branch and screenshots of the successful GitHub Actions runs.
+          Repository: https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline
+
+This package contains the project source from the repository's `main` branch and screenshots of the successful GitHub Actions CI runs.
 
           ## CI evidence
 
           - Backend Continuous Integration: all jobs passed (tests, lint, Docker build).
-            https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44180198348
+            https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44232758157
           - Frontend Continuous Integration: all jobs passed (tests, lint, Docker build).
-            https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44184296580
+            https://github.com/sagarkiranathinarapu-png/movie-picture-pipeline/actions/runs/44232766414
 
           Screenshots are in `evidence/`. They were captured from the public GitHub Actions run pages by this workflow.
 
@@ -96,11 +98,13 @@ jobs:
 
           The workflows target AWS region `us-east-1`, EKS cluster `cluster`, and ECR repositories `backend` and `frontend`. Provision the AWS resources first using the Terraform instructions in the project README.
 
-          Run **Backend Continuous Deployment** first from Actions. After the backend service has a LoadBalancer hostname, copy the `Backend API URL` shown in the deploy job and add a repository **Actions variable** named `MOVIE_API_URL` with that full URL (for example, `http://<backend-load-balancer-hostname>`). Then run **Frontend Continuous Deployment**.
+          Run **Backend Continuous Deployment** first from Actions. It prints the Backend API URL and verifies `/movies`. Then run **Frontend Continuous Deployment**; it automatically reads the backend LoadBalancer hostname from Kubernetes and passes it into the frontend build. The frontend CD workflow prints and verifies the Frontend Application URL.
 
           CD workflows can also run automatically when their respective application directory changes on `main`. Each workflow only deploys after its lint and test jobs pass. The deployment job updates the Kubernetes deployment to use the image tagged with the triggering commit SHA and waits for the rollout.
 
-          **Deployment status:** CD workflow definitions are included, but a successful live EKS deployment must be confirmed in the target AWS account after the two repository secrets, infrastructure, and `MOVIE_API_URL` variable are configured. No AWS credentials are stored in this ZIP.
+          **Deployment status:** The two CI workflows have successful runs. CD definitions and deployment verification steps are included. Live EKS deployment remains unverified until AWS Actions secrets `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are configured and the provisioned AWS cluster is reachable. No AWS credentials are stored in this ZIP.
+
+**Udacity resubmission:** Submit the public GitHub repository link, not only this ZIP. After both CD workflows pass, open the Backend API URL and Frontend Application URL printed in their job summaries and take browser screenshots with the URL/address bar visible. These application screenshots are required evidence and are not included until live deployment is completed.
 
           ## Packaging notes
 
