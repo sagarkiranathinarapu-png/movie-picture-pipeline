@@ -186,6 +186,8 @@ jobs:
         run: |
           echo "----- Logging - Frontend ECR Image Details -----"
           AWS_PAGER="" aws ecr describe-images --repository-name frontend --region "$AWS_REGION"
+          echo "----- Verifying image tag $GITHUB_SHA -----"
+          AWS_PAGER="" aws ecr describe-images --repository-name frontend --image-ids imageTag="$GITHUB_SHA" --region "$AWS_REGION"
 
       - name: Display and verify Frontend Application URL
         run: |
@@ -201,5 +203,8 @@ jobs:
             echo "::error::Frontend LoadBalancer hostname was not assigned within 10 minutes."
             exit 1
           fi
-          echo "Frontend Application URL: http://$FRONTEND_HOST"
-          curl --fail --show-error --retry 12 --retry-delay 10 --retry-connrefused "http://$FRONTEND_HOST/"
+          FRONTEND_URL="http://$FRONTEND_HOST/"
+          echo "Frontend Application URL: $FRONTEND_URL"
+          echo "### Frontend application verification" >> "$GITHUB_STEP_SUMMARY"
+          echo "Frontend Application URL: [$FRONTEND_URL]($FRONTEND_URL)" >> "$GITHUB_STEP_SUMMARY"
+          curl --fail --show-error --retry 12 --retry-delay 10 --retry-connrefused "$FRONTEND_URL"
